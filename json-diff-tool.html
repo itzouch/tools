@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON 高性能对比工具</title>
+  <style>
+    :root{
+      --line:#dbe5f1;
+      --line-soft:#edf2f8;
+      --text:#17263a;
+      --muted:#718198;
+      --brand:#2563eb;
+      --brand-2:#1d4ed8;
+      --brand-soft:#eef5ff;
+      --success:#12a150;
+      --danger:#dc3545;
+      --warning:#f59f00;
+      --warnBg:rgba(245,159,0,.12);
+      --warnLine:rgba(245,159,0,.42);
+      --panel:#ffffff;
+      --panel-2:#fbfdff;
+      --code-head:#f6f9fd;
+      --code-text:#20314a;
+      --bg:#f4f7fb;
+      --shadow:0 10px 28px rgba(20,40,80,.08);
+      --shadow-soft:0 4px 14px rgba(20,40,80,.06);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      padding:22px;
+      min-height:100vh;
+      color:var(--text);
+      font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+      background:linear-gradient(180deg,#f8fafc 0%,#f2f5fa 100%);
+    }
+    .app{
+      max-width:1600px;
+      margin:0 auto;
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+      background:#fff;
+      box-shadow:0 8px 24px rgba(20,40,80,.06);
+    }
+    .head{
+      position:relative;
+      padding:22px 26px;
+      border-bottom:1px solid var(--line-soft);
+      background:#fff;
+    }
+    .head:before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:5px;
+      background:linear-gradient(180deg,var(--brand),var(--success));
+    }
+    .head h1{margin:0;font-size:24px;letter-spacing:.2px;color:#10243e}
+    .head p{margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.6}
+    .bar{
+      display:grid;
+      grid-template-columns:auto auto auto minmax(280px,1fr) auto;
+      gap:10px;
+      align-items:center;
+      padding:14px 18px;
+      border-bottom:1px solid var(--line-soft);
+      background:#fff;
+    }
+    button{
+      border:1px solid #c9d8ea;
+      border-radius:999px;
+      padding:8px 15px;
+      background:#fff;
+      color:var(--text);
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+      transition:.16s ease, transform .12s ease;
+      box-shadow:none;
+    }
+    button:hover{background:#f5f9ff;transform:translateY(-1px);border-color:#9eb6d6}
+    button:active{transform:translateY(0)}
+    .primary{
+      border-color:var(--brand);
+      background:var(--brand);
+      color:#fff;
+      box-shadow:none;
+    }
+    .ignore{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+      padding:4px 6px 4px 10px;
+      border:1px solid var(--line-soft);
+      border-radius:999px;
+      background:#f8fbff;
+    }
+    .ignore label{font-size:12px;color:#4e6688;white-space:nowrap;font-weight:700}
+    .ignore input{
+      width:100%;
+      min-width:180px;
+      border:0;
+      background:transparent;
+      color:var(--text);
+      border-radius:999px;
+      padding:7px 9px;
+      font-size:12px;
+      outline:none;
+    }
+    .ignore:focus-within{border-color:#8bb5f7;box-shadow:0 0 0 4px rgba(37,99,235,.08);background:#fff}
+    .status{justify-self:end;color:var(--muted);font-size:12px}
+    .inputs,.trees{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
+      padding:16px;
+      align-items:stretch;
+    }
+    .box{
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+      background:#fff;
+      display:flex;
+      flex-direction:column;
+      min-height:330px;
+      box-shadow:var(--shadow-soft);
+    }
+    .boxh{
+      padding:11px 14px;
+      border-bottom:1px solid var(--line-soft);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      min-height:44px;
+      background:linear-gradient(180deg,#fbfdff,#f6f9ff);
+    }
+    .boxh strong,.vhead strong{
+      position:relative;
+      padding-left:11px;
+      color:#17263a;
+    }
+    .boxh strong:before,.vhead strong:before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:50%;
+      width:4px;
+      height:16px;
+      border-radius:999px;
+      background:var(--brand);
+      transform:translateY(-50%);
+    }
+    textarea{
+      width:100%;
+      min-height:280px;
+      border:none;
+      outline:none;
+      background:#fcfdff;
+      color:#172a42;
+      font-family:Consolas,monospace;
+      font-size:12px;
+      line-height:1.5;
+      padding:14px;
+      resize:vertical;
+      flex:1;
+      transition:background .16s ease, box-shadow .16s ease;
+    }
+    textarea:focus{background:#fff;box-shadow:inset 0 0 0 2px rgba(37,99,235,.10)}
+    .viewer{
+      border-top:1px solid var(--line-soft);
+      padding:16px;
+      background:#f8fafc;
+    }
+    .vhead{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin:0 0 14px;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      box-shadow:none;
+    }
+    .switch{display:inline-flex;border:1px solid #c7d3e3;border-radius:999px;overflow:hidden;background:#fff}
+    .switch button{border:none;border-right:1px solid #d7e2f0;border-radius:0;background:#fff;min-width:96px;box-shadow:none}
+    .switch button:last-child{border-right:none}
+    .switch button.active{background:var(--brand);color:#fff}
+    .navtxt{font-size:12px;color:#5f7088;font-weight:700;min-width:72px;text-align:right}
+    .badge{display:inline-flex;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
+    .ok{color:#0d7d42;background:rgba(18,161,80,.10);border-color:rgba(18,161,80,.24)}
+    .warn{color:#a16207;background:rgba(245,159,0,.13);border-color:rgba(245,159,0,.28)}
+    .error{color:#b42335;background:rgba(220,53,69,.10);border-color:rgba(220,53,69,.24)}
+    .tree{
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+      background:var(--panel);
+      display:flex;
+      flex-direction:column;
+      min-height:330px;
+      height:auto;
+      box-shadow:none;
+    }
+    .treet{
+      border-bottom:1px solid var(--line-soft);
+      padding:11px 14px;
+      font-size:12px;
+      color:#4a607f;
+      background:linear-gradient(180deg,#fbfdff,var(--code-head));
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      font-weight:700;
+    }
+    .treeb{
+      padding:12px 10px 14px;
+      min-height:280px;
+      max-height:none;
+      overflow:visible;
+      font:13px/1.5 Consolas,monospace;
+      flex:none;
+      background:var(--panel-2);
+      color:var(--code-text);
+    }
+    .treeb::-webkit-scrollbar,textarea::-webkit-scrollbar{width:10px;height:10px}
+    .treeb::-webkit-scrollbar-thumb,textarea::-webkit-scrollbar-thumb{background:#c6d3e4;border-radius:999px;border:2px solid #f8fbff}
+    .treeb::-webkit-scrollbar-track,textarea::-webkit-scrollbar-track{background:#f8fbff}
+    .ph{margin:8px;padding:18px;text-align:center;color:#8395ad;border:1px dashed #c3d1e4;border-radius:12px;background:#fff}
+    .json-details>summary{
+      list-style:none;
+      cursor:pointer;
+      padding:3px 7px;
+      border-radius:8px;
+      display:flex;
+      gap:6px;
+      align-items:center;
+      color:#3e5574;
+      transition:background .16s ease;
+    }
+    .json-details>summary:hover{background:#eef5ff}
+    .json-details>summary::-webkit-details-marker{display:none}
+    .caret{width:11px;text-align:center;color:#5f93ef;transition:transform .15s}
+    .json-details[open]>summary .caret{transform:rotate(90deg)}
+    .children{margin-left:16px;padding-left:9px;border-left:1px dashed #c5d3e6}
+    .line{
+      padding:3px 7px;
+      border-radius:8px;
+      white-space:pre-wrap;
+      word-break:break-word;
+      overflow:visible;
+    }
+    .line:hover{background:#eef5ff}
+    .diff{
+      background:var(--warnBg);
+      border:1px solid var(--warnLine);
+    }
+    .diff.diff-value{
+      background:var(--warnBg);
+      border-color:var(--warnLine);
+    }
+    .diff.diff-missing{
+      background:rgba(220,53,69,.26);
+      border-color:rgba(220,53,69,.60);
+      box-shadow:inset 0 0 0 1px rgba(220,53,69,.18);
+    }
+    .json-details.diff{border:0;background:transparent}
+    .json-details.diff>summary{
+      background:var(--warnBg);
+      border:1px solid var(--warnLine);
+    }
+    .json-details.diff.diff-value>summary{
+      background:var(--warnBg);
+      border-color:var(--warnLine);
+    }
+    .json-details.diff.diff-missing>summary{
+      background:rgba(220,53,69,.26);
+      border-color:rgba(220,53,69,.60);
+      box-shadow:inset 0 0 0 1px rgba(220,53,69,.18);
+    }
+    .jump-focus{
+      outline:2px solid #2563eb;
+      outline-offset:1px;
+      box-shadow:0 0 0 3px rgba(37,99,235,.16);
+    }
+    .jump-peer{
+      outline:2px dashed rgba(37,99,235,.55);
+      outline-offset:1px;
+    }
+    .floating-nav{
+      position:fixed;
+      right:20px;
+      bottom:20px;
+      z-index:1000;
+      display:none;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border:1px solid #c9d8ea;
+      border-radius:12px;
+      background:rgba(255,255,255,.95);
+      box-shadow:0 12px 28px rgba(20,40,80,.18);
+      backdrop-filter:blur(6px);
+    }
+    .floating-nav.show{display:flex}
+    .floating-nav button{padding:7px 12px}
+    .floating-nav .navtxt{min-width:64px;text-align:center}
+    .k{color:#6aab73}
+    .s{color:#cc7832}
+    .n{color:#cc7832}
+    .b{color:#cc7832}
+    .nl{color:#cc7832}
+    .sub{color:#7f8ca1;font-size:12px}
+    .miss{color:#f07178;font-style:italic}
+    @media (max-width:1100px){
+      .bar{grid-template-columns:1fr 1fr}
+      .status{justify-self:start}
+      .inputs,.trees{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="head"><h1>JSON 高性能对比工具</h1><p>支持折叠层级、全量/仅差异切换、字段忽略；对象字段顺序无关；数组对象对比。</p></div>
+  <div class="bar">
+    <button id="compareBtn" class="primary">开始对比</button><button id="clearBtn">清空</button><button id="sampleBtn">填充示例</button>
+    <div class="ignore"><label for="ignoreInput">忽略字段</label><input id="ignoreInput" type="text" placeholder="例: errMessage,$.data.traceId" /></div>
+    <span id="statusText" class="status">等待输入 JSON...</span>
+  </div>
+  <div class="inputs">
+    <div class="box"><div class="boxh"><strong>左侧 JSON</strong><span id="leftMeta" class="status">未格式化</span></div><textarea id="leftInput"></textarea></div>
+    <div class="box"><div class="boxh"><strong>右侧 JSON</strong><span id="rightMeta" class="status">未格式化</span></div><textarea id="rightInput"></textarea></div>
+  </div>
+  <div class="viewer">
+    <div class="vhead">
+      <strong>树形差异视图</strong>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="switch"><button id="viewAllBtn" class="active">全量展示</button><button id="viewDiffBtn">仅展示差异</button></div>
+        <span id="resultBadge" class="badge warn">尚未执行对比</span>
+      </div>
+    </div>
+    <div class="trees">
+      <div class="tree"><div class="treet">左侧结构</div><div id="leftTree" class="treeb"><div class="ph">执行对比后显示树结构。</div></div></div>
+      <div class="tree"><div class="treet">右侧结构</div><div id="rightTree" class="treeb"><div class="ph">执行对比后显示树结构。</div></div></div>
+    </div>
+  </div>
+</div>
+<div id="floatingNav" class="floating-nav">
+  <button id="prevDiffFloatBtn">上一处</button>
+  <button id="nextDiffFloatBtn">下一处</button>
+  <span id="diffNavFloatText" class="navtxt">0 / 0</span>
+</div>
+<script>
+const MISSING = Symbol("missing");
+const $ = (id) => document.getElementById(id);
+const leftInput=$("leftInput"), rightInput=$("rightInput"), compareBtn=$("compareBtn"), clearBtn=$("clearBtn"), sampleBtn=$("sampleBtn"), ignoreInput=$("ignoreInput");
+const statusText=$("statusText"), leftMeta=$("leftMeta"), rightMeta=$("rightMeta"), resultBadge=$("resultBadge"), leftTree=$("leftTree"), rightTree=$("rightTree"), viewAllBtn=$("viewAllBtn"), viewDiffBtn=$("viewDiffBtn"), floatingNav=$("floatingNav"), prevDiffFloatBtn=$("prevDiffFloatBtn"), nextDiffFloatBtn=$("nextDiffFloatBtn"), diffNavFloatText=$("diffNavFloatText");
+let lastResult=null, viewMode="all", diffNavItems=[], diffNavIndex=-1;
+let jumpPathMapLR=new Map();
+function setStatus(t,tp){statusText.textContent=t; statusText.style.color=tp==="ok"?"#0f8f51":tp==="error"?"#c93d3d":"#6b7788";}
+function setBadge(tp,t){resultBadge.className="badge "+tp; resultBadge.textContent=t;}
+function setViewMode(m){viewMode=m;viewAllBtn.classList.toggle("active",m==="all");viewDiffBtn.classList.toggle("active",m==="diff");if(lastResult)renderTrees(lastResult);}
+function type(v){if(v===MISSING)return"missing";if(v===null)return"null";if(Array.isArray(v))return"array";return typeof v;}
+function vstr(v){const t=type(v);if(t==="missing")return"(缺失字段)";if(t==="string")return JSON.stringify(v);if(t==="number"||t==="boolean"||t==="null")return String(v);try{return JSON.stringify(v);}catch(e){return"[无法序列化]";}}
+function sortObj(v){if(v===null||typeof v!=="object")return v;if(Array.isArray(v))return v.map(sortObj);const out={};Object.keys(v).sort().forEach(k=>out[k]=sortObj(v[k]));return out;}
+function normalizeForCompare(v){if(v===null||typeof v!=="object")return v;if(Array.isArray(v)){const arr=v.map(normalizeForCompare);arr.sort((a,b)=>{const sa=JSON.stringify(a),sb=JSON.stringify(b);return sa<sb?-1:sa>sb?1:0;});return arr;}const out={};Object.keys(v).sort().forEach(k=>out[k]=normalizeForCompare(v[k]));return out;}
+function stableJson(v){try{return JSON.stringify(normalizeForCompare(v));}catch(e){return vstr(v);}}
+function pickPropKey(obj,candidates){for(let i=0;i<candidates.length;i++){const k=candidates[i];if(Object.prototype.hasOwnProperty.call(obj,k))return k;}const lowered=Object.keys(obj).reduce((m,k)=>{m.set(k.toLowerCase(),k);return m;},new Map());for(let i=0;i<candidates.length;i++){const real=lowered.get(candidates[i].toLowerCase());if(real)return real;}return"";}
+function toCustomerTagEntry(item,idx){if(!item||typeof item!=="object"||Array.isArray(item))return null;const keyField=pickPropKey(item,["TagKey","tagKey","tag_key"]),valueField=pickPropKey(item,["TagValue","tagValue","tag_value"]);if(!keyField||!valueField)return null;return{idx,key:String(item[keyField]),value:item[valueField],keyField,valueField};}
+function groupCustomerTag(arr){const map=new Map();for(let i=0;i<arr.length;i++){const e=toCustomerTagEntry(arr[i],i);if(!e)continue;if(!map.has(e.key))map.set(e.key,[]);map.get(e.key).push(e);}return map;}
+function isCustomerTagArray(k,l,r){
+if(typeof k==="string"&&/customertag/i.test(k))return true;
+const validRatio=(arr)=>{
+if(!Array.isArray(arr)||arr.length===0)return 0;
+let ok=0;
+for(let i=0;i<arr.length;i++){if(toCustomerTagEntry(arr[i],i))ok++;}
+return ok/arr.length;
+};
+return validRatio(l)>=0.7&&validRatio(r)>=0.7;
+}
+function parseIgnore(raw){const arr=raw.split(/[,;\n，\s]+/).map(s=>s.trim()).filter(Boolean);const names=new Set(), paths=new Set();arr.forEach(p=>{if(p.includes(".")||p.includes("[")||p.startsWith("$")){if(p.startsWith("$"))paths.add(p);else if(p.startsWith("."))paths.add("$"+p);else paths.add("$."+p);}else names.add(p);});return{names,paths};}
+function ignore(path,key,ig){return ig.paths.has(path)||(key&&ig.names.has(key));}
+function parentPath(p){if(p==="$")return"";if(p.endsWith("]")){const i=p.lastIndexOf("[");return i<=0?"$":p.slice(0,i);}const d=p.lastIndexOf(".");return d<=0?"$":p.slice(0,d);} 
+function markAncestors(p,set){let c=p;while(c){if(set.has(c))break;set.add(c);if(c==="$")break;c=parentPath(c);}}
+function hasDiffDescendant(path,diffSet){const dot=path+".",bracket=path+"[";for(const p of diffSet){if(p.startsWith(dot)||p.startsWith(bracket))return true;}return false;}
+function diffClass(isDiff,isMissing){if(!isDiff)return"";return isMissing?" diff diff-missing":" diff diff-value";}
+function escAttr(v){if(window.CSS&&typeof CSS.escape==="function")return CSS.escape(v);return v.replace(/[\\"]/g,"\\$&");}
+function clearJumpFocus(){document.querySelectorAll(".jump-focus,.jump-peer").forEach(el=>el.classList.remove("jump-focus","jump-peer"));}
+function setNavText(i,total){const text=total===0?"0 / 0":(i+1)+" / "+total;diffNavFloatText.textContent=text;}
+function setNavEnabled(enabled){prevDiffFloatBtn.disabled=!enabled;nextDiffFloatBtn.disabled=!enabled;floatingNav.classList.toggle("show",enabled);}
+function openAncestors(el){let cur=el;while(cur){if(cur.tagName==="DETAILS")cur.open=true;cur=cur.parentElement;}}
+function buildJumpPathMap(){
+jumpPathMapLR.clear();
+if(!lastResult||!Array.isArray(lastResult.diffList))return;
+for(let i=0;i<lastResult.diffList.length;i++){
+const d=lastResult.diffList[i];
+if(!d||!d.pL||!d.pR)continue;
+if(!jumpPathMapLR.has(d.pL))jumpPathMapLR.set(d.pL,d.pR);
+}
+}
+function collectDiffTargets(){buildJumpPathMap();diffNavItems=Array.from(leftTree.querySelectorAll(".diff-target"));diffNavIndex=-1;setNavText(-1,diffNavItems.length);setNavEnabled(diffNavItems.length>0);}
+function focusPairByPath(path,idx){
+clearJumpFocus();
+const left=diffNavItems[idx];if(!left)return;
+openAncestors(left);left.classList.add("jump-focus");left.scrollIntoView({behavior:"smooth",block:"center"});
+const rightPath=jumpPathMapLR.get(path)||path;
+const sel='[data-path="'+escAttr(rightPath)+'"][data-side="right"]';
+const right=rightTree.querySelector('.diff-target'+sel)||rightTree.querySelector(sel);
+if(right){openAncestors(right);right.classList.add("jump-peer");}
+setNavText(idx,diffNavItems.length);
+}
+function jumpDiff(step){
+if(!lastResult||diffNavItems.length===0){setStatus("当前无可跳转差异。","normal");return;}
+diffNavIndex=(diffNavIndex+step+diffNavItems.length)%diffNavItems.length;
+focusPairByPath(diffNavItems[diffNavIndex].dataset.path,diffNavIndex);
+}
+function isPlainObj(v){return v&&typeof v==="object"&&!Array.isArray(v);}
+function isPrimitive(v){const t=typeof v;return v===null||t==="string"||t==="number"||t==="boolean";}
+function getAutoMatchKey(larr,rarr){
+const preset=["id","Id","ID","code","Code","CODE","key","Key","KEY"];
+const keySet=new Set(preset);
+const isLikelyMatchKey=(k)=>/id$/i.test(k)||/[A-Z0-9_]*ID$/.test(k)||/code$/i.test(k)||/key$/i.test(k);
+const collect=(arr)=>{for(let i=0;i<arr.length;i++){if(!isPlainObj(arr[i]))continue;Object.keys(arr[i]).forEach(k=>{if(isLikelyMatchKey(k))keySet.add(k);});}};
+collect(larr);collect(rarr);
+let bestKey="",bestScore=0;
+for(const key of keySet){
+const lmap=new Map(),rmap=new Map();let ldup=0,rdup=0;
+for(let i=0;i<larr.length;i++){const o=larr[i];if(!isPlainObj(o)||!Object.prototype.hasOwnProperty.call(o,key)||!isPrimitive(o[key]))continue;const v=String(o[key]);if(lmap.has(v))ldup++;else lmap.set(v,i);}
+for(let j=0;j<rarr.length;j++){const o=rarr[j];if(!isPlainObj(o)||!Object.prototype.hasOwnProperty.call(o,key)||!isPrimitive(o[key]))continue;const v=String(o[key]);if(rmap.has(v))rdup++;else rmap.set(v,j);}
+if(lmap.size===0||rmap.size===0)continue;
+let matches=0;for(const v of lmap.keys()){if(rmap.has(v))matches++;}
+const score=matches*100-(ldup+rdup)*5;
+if(matches>0&&score>bestScore){bestScore=score;bestKey=key;}
+}
+return bestKey;
+}
+function similarityScore(a,b){
+if(!isPlainObj(a)||!isPlainObj(b))return -1;
+const akeys=Object.keys(a),bkeys=Object.keys(b),bset=new Set(bkeys);
+let shared=0,same=0;
+for(let i=0;i<akeys.length;i++){const k=akeys[i];if(!bset.has(k))continue;shared++;if(isPrimitive(a[k])&&isPrimitive(b[k])&&a[k]===b[k])same++;}
+if(shared===0)return -1;
+return same*3+shared;
+}
+function buildArrayPairs(larr,rarr){
+const pairs=[],leftOnly=[],rightOnly=[];
+const lused=new Array(larr.length).fill(false),rused=new Array(rarr.length).fill(false);
+const key=getAutoMatchKey(larr,rarr);
+if(key){
+const rmap=new Map();
+for(let j=0;j<rarr.length;j++){const o=rarr[j];if(!isPlainObj(o)||!Object.prototype.hasOwnProperty.call(o,key)||!isPrimitive(o[key]))continue;rmap.set(String(o[key]),j);}
+for(let i=0;i<larr.length;i++){
+const o=larr[i];if(!isPlainObj(o)||!Object.prototype.hasOwnProperty.call(o,key)||!isPrimitive(o[key]))continue;
+const j=rmap.get(String(o[key]));if(j===undefined||rused[j])continue;
+pairs.push([i,j]);lused[i]=true;rused[j]=true;
+}
+}
+const rbucket=new Map();
+for(let j=0;j<rarr.length;j++){if(rused[j])continue;const sig=stableJson(rarr[j]);if(!rbucket.has(sig))rbucket.set(sig,[]);rbucket.get(sig).push(j);}
+for(let i=0;i<larr.length;i++){
+if(lused[i])continue;const sig=stableJson(larr[i]),bucket=rbucket.get(sig);
+if(!bucket||bucket.length===0)continue;const j=bucket.pop();
+pairs.push([i,j]);lused[i]=true;rused[j]=true;
+}
+for(let i=0;i<larr.length;i++){
+if(lused[i])continue;
+let bestJ=-1,bestScore=-1;
+for(let j=0;j<rarr.length;j++){if(rused[j])continue;const s=similarityScore(larr[i],rarr[j]);if(s>bestScore){bestScore=s;bestJ=j;}}
+if(bestJ>=0&&bestScore>0){pairs.push([i,bestJ]);lused[i]=true;rused[bestJ]=true;}
+}
+for(let i=0;i<larr.length;i++)if(!lused[i])leftOnly.push(i);
+for(let j=0;j<rarr.length;j++)if(!rused[j])rightOnly.push(j);
+pairs.sort((a,b)=>a[0]-b[0]);
+return{pairs,leftOnly,rightOnly};
+}
+function compare(lroot,rroot,ig){
+const diffs=[],keyDiffs=[],valueDiffs=[],leftDiffSet=new Set(),rightDiffSet=new Set(),visibleSet=new Set(),stack=[{l:lroot,r:rroot,pL:"$",pR:"$",k:""}];
+const pushDiff=(kind,pL,pR,reason,l,r,scope="both")=>{const item={kind,p:pL,pL,pR,reason,l,r};diffs.push(item);if(kind==="key")keyDiffs.push(item);else valueDiffs.push(item);if(scope==="both"||scope==="left"){leftDiffSet.add(pL);markAncestors(pL,visibleSet);}if(scope==="both"||scope==="right"){rightDiffSet.add(pR);markAncestors(pR,visibleSet);}};
+while(stack.length){
+const n=stack.pop();const l=n.l,r=n.r,pL=n.pL,pR=n.pR,k=n.k;if(ignore(pL,k,ig)||ignore(pR,k,ig))continue;const lt=type(l),rt=type(r);
+if(lt==="missing"||rt==="missing"){pushDiff("key",pL,pR,"字段缺失",vstr(l),vstr(r));continue;}
+if(lt!==rt){pushDiff("value",pL,pR,"类型不一致",vstr(l),vstr(r));continue;}
+if(lt==="object"){
+const lkeys=Object.keys(l),rkeys=Object.keys(r),rset=new Set(rkeys),lset=new Set(lkeys);
+for(let i=lkeys.length-1;i>=0;i--){const key=lkeys[i];if(rset.has(key))continue;const cpL=pL==="$"?"$."+key:pL+"."+key,cpR=pR==="$"?"$."+key:pR+"."+key;if(ignore(cpL,key,ig)||ignore(cpR,key,ig))continue;pushDiff("key",cpL,cpR,"仅左侧存在字段",vstr(l[key]),"(缺失字段)");}
+for(let i=rkeys.length-1;i>=0;i--){const key=rkeys[i];if(lset.has(key))continue;const cpL=pL==="$"?"$."+key:pL+"."+key,cpR=pR==="$"?"$."+key:pR+"."+key;if(ignore(cpL,key,ig)||ignore(cpR,key,ig))continue;pushDiff("key",cpL,cpR,"仅右侧存在字段","(缺失字段)",vstr(r[key]));}
+const common=lkeys.filter(key=>rset.has(key)).sort();
+for(let i=common.length-1;i>=0;i--){const key=common[i],cpL=pL==="$"?"$."+key:pL+"."+key,cpR=pR==="$"?"$."+key:pR+"."+key;if(ignore(cpL,key,ig)||ignore(cpR,key,ig))continue;stack.push({l:l[key],r:r[key],pL:cpL,pR:cpR,k:key});}
+continue;}
+if(lt==="array"){
+const matched=buildArrayPairs(l,r);
+if(l.length!==r.length){pushDiff("key",pL,pR,"数组长度不一致（按无序集合比较）","长度 "+l.length,"长度 "+r.length);}
+for(let m=matched.pairs.length-1;m>=0;m--){const i=matched.pairs[m][0],j=matched.pairs[m][1],cpL=pL+"["+i+"]",cpR=pR+"["+j+"]";stack.push({l:l[i],r:r[j],pL:cpL,pR:cpR,k:"["+i+"]"});}
+for(let a=0;a<matched.leftOnly.length;a++){const i=matched.leftOnly[a],cpL=pL+"["+i+"]",cpR=pR+"["+i+"]";if(ignore(cpL,"["+i+"]",ig)||ignore(cpR,"["+i+"]",ig))continue;pushDiff("value",cpL,cpR,"数组项仅左侧存在或内容不一致（无序比较）",vstr(l[i]),"(缺失字段)","left");}
+for(let b=0;b<matched.rightOnly.length;b++){const j=matched.rightOnly[b],cpL=pL+"["+j+"]",cpR=pR+"["+j+"]";if(ignore(cpL,"["+j+"]",ig)||ignore(cpR,"["+j+"]",ig))continue;pushDiff("value",cpL,cpR,"数组项仅右侧存在或内容不一致（无序比较）","(缺失字段)",vstr(r[j]),"right");}
+continue;}
+if(l!==r){pushDiff("value",pL,pR,"值不一致",vstr(l),vstr(r));}
+}
+return{diffs,keyDiffs,valueDiffs,leftDiffSet,rightDiffSet,visibleSet};}
+function tok(el,t,c){const s=document.createElement("span");s.className=c;s.textContent=t;el.appendChild(s);}
+function line(parent,keyLabel,val,depth,isDiff,isMissingDiff,path,side){const d=document.createElement("div");d.className="line"+diffClass(isDiff,isMissingDiff)+(isDiff?" diff-target":"");d.dataset.path=path;d.dataset.side=side;d.style.paddingLeft=(depth*14+6)+"px";if(keyLabel){tok(d,keyLabel,"k");tok(d,": ","nl");}const t=type(val);if(t==="missing")tok(d,"(缺失字段)","miss");else if(t==="string")tok(d,JSON.stringify(val),"s");else if(t==="number")tok(d,String(val),"n");else if(t==="boolean")tok(d,String(val),"b");else if(t==="null")tok(d,"null","nl");else tok(d,vstr(val),"nl");parent.appendChild(d);} 
+function mergeObjKeys(l,r){const s=new Set();if(type(l)==="object")Object.keys(l).forEach(k=>s.add(k));if(type(r)==="object")Object.keys(r).forEach(k=>s.add(k));return [...s].sort();}
+function renderNode(side,l,r,pL,pR,keyL,keyR,depth,state,probeOnly){
+const diffSet=side==="left"?state.leftDiffSet:state.rightDiffSet,path=side==="left"?pL:pR,isFieldDiff=diffSet.has(path),hasChildDiff=hasDiffDescendant(path,diffSet);
+const lt=type(l),rt=type(r),own=side==="left"?l:r,key=side==="left"?keyL:keyR,keyLabel=key===""?"$":(key.startsWith("[")?key:'"'+key+'"');
+const obj=lt==="object"&&rt==="object",arr=lt==="array"&&rt==="array";
+if(viewMode==="diff"&&!probeOnly&&!isFieldDiff&&!hasChildDiff)return null;
+if(obj||arr){
+const details=document.createElement("details");
+details.open=depth<2||isFieldDiff||hasChildDiff||probeOnly;
+const sum=document.createElement("summary");
+sum.dataset.path=path;
+sum.dataset.side=side;
+sum.style.paddingLeft=(depth*14+6)+"px";
+const c=document.createElement("span");c.className="caret";c.textContent="▶";sum.appendChild(c);
+tok(sum,keyLabel,"k");tok(sum,": ","nl");
+if(obj){const count=mergeObjKeys(l,r).length;tok(sum,"{ }","nl");tok(sum," "+count+" keys","sub");}
+else{const count=Math.max(l.length,r.length);tok(sum,"[ ]","nl");tok(sum," "+count+" items","sub");}
+details.appendChild(sum);
+const ch=document.createElement("div");ch.className="children";
+let hasChildRenderDiff=false;
+const childProbe=probeOnly;
+if(obj){
+mergeObjKeys(l,r).forEach(k=>{
+const cpL=pL==="$"?"$."+k:pL+"."+k,cpR=pR==="$"?"$."+k:pR+"."+k;if(ignore(cpL,k,state.ig)||ignore(cpR,k,state.ig))return;
+const nl=Object.prototype.hasOwnProperty.call(l,k)?l[k]:MISSING,nr=Object.prototype.hasOwnProperty.call(r,k)?r[k]:MISSING;
+const child=renderNode(side,nl,nr,cpL,cpR,k,k,depth+1,state,childProbe);
+if(child){ch.appendChild(child);if(child.dataset.hasRenderDiff==="1")hasChildRenderDiff=true;}
+});
+}else{
+const matched=buildArrayPairs(l,r);
+const rows=matched.pairs.map(pair=>({i:pair[0],j:pair[1],l:l[pair[0]],r:r[pair[1]]}));
+matched.leftOnly.forEach(i=>rows.push({i,j:i,l:l[i],r:MISSING}));
+matched.rightOnly.forEach(j=>rows.push({i:j,j,l:MISSING,r:r[j]}));
+rows.forEach(row=>{
+const cpL=pL+"["+row.i+"]",cpR=pR+"["+row.j+"]",keyLeft="["+row.i+"]",keyRight="["+row.j+"]";if(ignore(cpL,keyLeft,state.ig)||ignore(cpR,keyRight,state.ig))return;
+const child=renderNode(side,row.l,row.r,cpL,cpR,keyLeft,keyRight,depth+1,state,childProbe);
+if(child){ch.appendChild(child);if(child.dataset.hasRenderDiff==="1")hasChildRenderDiff=true;}
+});
+}
+const effectiveChildDiff=hasChildRenderDiff||hasChildDiff;
+if(viewMode==="diff"&&!isFieldDiff&&!effectiveChildDiff)return null;
+details.className="json-details";
+if(effectiveChildDiff||isFieldDiff){details.open=true;}
+details.dataset.hasRenderDiff=(isFieldDiff||effectiveChildDiff)?"1":"0";
+details.appendChild(ch);
+return details;
+}
+const renderDiff=isFieldDiff,isMissingDiff=renderDiff&&(lt==="missing"||rt==="missing");
+if(viewMode==="diff"&&!renderDiff)return null;
+const wrap=document.createElement("div");
+line(wrap,keyLabel,own,depth,renderDiff,isMissingDiff,path,side);
+const node=wrap.firstElementChild;
+node.dataset.hasRenderDiff=renderDiff?"1":"0";
+return node;
+}
+function renderTrees(state){leftTree.innerHTML="";rightTree.innerHTML="";const l=renderNode("left",state.l,state.r,"$","$","","",0,state,false);const r=renderNode("right",state.l,state.r,"$","$","","",0,state,false);if(l&&r){leftTree.appendChild(l);rightTree.appendChild(r);collectDiffTargets();clearJumpFocus();}else{leftTree.innerHTML="<div class='ph'>当前模式下无可展示节点。</div>";rightTree.innerHTML="<div class='ph'>当前模式下无可展示节点。</div>";diffNavItems=[];diffNavIndex=-1;setNavText(-1,0);setNavEnabled(false);}}
+function parseAndFormat(raw,side){const parsed=JSON.parse(raw);const pretty=JSON.stringify(sortObj(parsed),null,2);const bytes=new Blob([pretty]).size;(side==="left"?leftMeta:rightMeta).textContent="格式化后 "+bytes+" bytes";return{parsed,pretty};}
+function runCompare(){const lraw=leftInput.value.trim(),rraw=rightInput.value.trim();if(!lraw||!rraw){setBadge("error","输入不完整");setStatus("请先粘贴左右 JSON。","error");return;}const start=performance.now();setStatus("正在进行树形对比...","normal");setTimeout(()=>{try{const l=parseAndFormat(lraw,"left"),r=parseAndFormat(rraw,"right");leftInput.value=l.pretty;rightInput.value=r.pretty;const ig=parseIgnore(ignoreInput.value),res=compare(l.parsed,r.parsed,ig);lastResult={l:l.parsed,r:r.parsed,diffList:res.diffs,leftDiffSet:res.leftDiffSet,rightDiffSet:res.rightDiffSet,visibleSet:res.visibleSet,ig};const cost=(performance.now()-start).toFixed(1),vCount=res.valueDiffs.length,kCount=res.keyDiffs.length,total=vCount+kCount;if(total===0){setBadge("ok","完全一致");setStatus("对比完成（对象字段顺序与数组顺序均忽略），用时 "+cost+" ms。","ok");}else{setBadge("warn","差异 "+total+" 处");setStatus("对比完成：key 差异 "+kCount+" 处，value 差异 "+vCount+" 处（对象字段顺序与数组顺序均忽略），用时 "+cost+" ms。","normal");}renderTrees(lastResult);}catch(e){setBadge("error","JSON 解析失败");setStatus("JSON 格式错误，请检查后重试。","error");leftTree.innerHTML="<div class='ph'>解析失败: "+e.message+"</div>";rightTree.innerHTML="<div class='ph'>解析失败: "+e.message+"</div>";}},0);}
+compareBtn.addEventListener("click",runCompare);viewAllBtn.addEventListener("click",()=>setViewMode("all"));viewDiffBtn.addEventListener("click",()=>setViewMode("diff"));
+prevDiffFloatBtn.addEventListener("click",()=>jumpDiff(-1));
+nextDiffFloatBtn.addEventListener("click",()=>jumpDiff(1));
+clearBtn.addEventListener("click",()=>{leftInput.value="";rightInput.value="";ignoreInput.value="";leftMeta.textContent="未格式化";rightMeta.textContent="未格式化";setBadge("warn","尚未执行对比");setStatus("等待输入 JSON...","normal");leftTree.innerHTML="<div class='ph'>执行对比后显示树结构。</div>";rightTree.innerHTML="<div class='ph'>执行对比后显示树结构。</div>";lastResult=null;diffNavItems=[];diffNavIndex=-1;setNavText(-1,0);setNavEnabled(false);clearJumpFocus();setViewMode("all");});
+sampleBtn.addEventListener("click",()=>{leftInput.value=JSON.stringify({head:{errCode:0,errMessage:"SUCCESS",logID:"ID123"},data:{hotelId:529923,room:{baseRoomName:"豪华房",breakfast:true},tags:["city","test"]}});rightInput.value=JSON.stringify({data:{tags:["city","test","new"],room:{breakfast:false,baseRoomName:"豪华房-改"},hotelId:529923},head:{logID:"ID123",errCode:0,errMessage:"SUCCESS V2"}});setStatus("示例已填充，点击开始对比。","normal");});
+setNavEnabled(false);
+</script>
+</body>
+</html>
